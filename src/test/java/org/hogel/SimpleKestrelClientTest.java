@@ -11,7 +11,7 @@ import org.junit.Test;
 public class SimpleKestrelClientTest {
 
     @Test
-    public void 適当に使ってみる() throws Exception {
+    public void set_peek_get_peektimeout_gettimeout() throws Exception {
         Socket socket = new Socket("127.0.0.1", 22133);
         SimpleKestrelClient client = new SimpleKestrelClient(socket);
 
