@@ -150,4 +150,9 @@ public class SimpleKestrelClient {
         String command = String.format("get %s/peek/t=%d", key, timeout);
         return rawGet(command);
     }
+
+    public void delete(String key) throws IOException {
+        String command = String.format("delete %s", key);
+        send(command);
+    }
 }

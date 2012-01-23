@@ -42,4 +42,14 @@ public class SimpleKestrelClientTest {
         assertThat(client.get("hoge"), is(nullValue()));
         assertThat(client.get("hoge", 5000), is("hogemoge"));
     }
+
+    public void set_delte() throws Exception {
+        Socket socket = new Socket("127.0.0.1", 22133);
+        SimpleKestrelClient client = new SimpleKestrelClient(socket);
+
+        client.set("hoge", "hogehoge");
+
+        client.delete("hoge");
+        assertThat(client.get("hoge"), is(nullValue()));
+    }
 }
