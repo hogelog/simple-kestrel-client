@@ -42,5 +42,4 @@ public class SimpleKestrelClientTest {
         assertThat(client.get("hoge"), is(nullValue()));
         assertThat(client.get("hoge", 5000), is("hogemoge"));
     }
-
 }
