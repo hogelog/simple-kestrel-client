@@ -4,6 +4,7 @@ package org.hogel;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.UnknownHostException;
@@ -12,7 +13,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-public class SimpleKestrelClient {
+public class SimpleKestrelClient implements Closeable {
     private static final Charset CHARSET_UTF8 = Charset.forName("UTF-8");
 
     public static enum ResponseType {
@@ -20,6 +21,7 @@ public class SimpleKestrelClient {
         END,
         STORED,
         CLIENT_ERROR,
+        DELETED,
         ;
 
         static final Map<String, ResponseType> typesMap;
@@ -43,10 +45,12 @@ public class SimpleKestrelClient {
         }
     }
 
+    private final Socket socket;
     private final BufferedInputStream input;
     private final BufferedOutputStream output;
 
     public SimpleKestrelClient(Socket socket) throws UnknownHostException, IOException {
+        this.socket = socket;
         input = new BufferedInputStream(socket.getInputStream());
         output = new BufferedOutputStream(socket.getOutputStream());
     }
@@ -154,5 +158,13 @@ public class SimpleKestrelClient {
     public void delete(String key) throws IOException {
         String command = String.format("delete %s", key);
         send(command);
+        ResponseType deletedResponseType = recvResponseType();
+        if (deletedResponseType != ResponseType.DELETED && deletedResponseType != ResponseType.END) {
+            throw new IllegalArgumentException(deletedResponseType.name());
+        }
+    }
+
+    public void close() throws IOException {
+        socket.close();
     }
 }
