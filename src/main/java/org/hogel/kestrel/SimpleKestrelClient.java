@@ -1,5 +1,4 @@
-package org.hogel;
-
+package org.hogel.kestrel;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;

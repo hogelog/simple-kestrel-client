@@ -1,4 +1,4 @@
-package org.hogel;
+package org.hogel.kestrel;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.nullValue;
@@ -69,5 +69,13 @@ public class SimpleKestrelClientTest {
 
         client.delete("hoge");
         assertThat(client.get("hoge"), is(nullValue()));
+    }
+
+    @Test
+    public void many_set() throws Exception {
+        for (int i = 0; i < 40000; ++i) {
+            client.set("hoge", "hogehoge");
+        }
+        client.delete("hoge");
     }
 }
