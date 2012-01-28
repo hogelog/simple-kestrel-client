@@ -47,11 +47,13 @@ public class SimpleKestrelClient implements Closeable {
     private final Socket socket;
     private final BufferedInputStream input;
     private final BufferedOutputStream output;
+    private final KestrelCommandFactory commandFactory;
 
     public SimpleKestrelClient(Socket socket) throws UnknownHostException, IOException {
         this.socket = socket;
         input = new BufferedInputStream(socket.getInputStream());
         output = new BufferedOutputStream(socket.getOutputStream());
+        commandFactory = new KestrelCommandFactory();
     }
 
     static final byte[] CRLF = "\r\n".getBytes(CHARSET_UTF8);
@@ -60,8 +62,14 @@ public class SimpleKestrelClient implements Closeable {
     }
 
     private void send(byte[] data) throws IOException {
+        send(data, false);
+    }
+
+    private void send(byte[] data, boolean withCRLF) throws IOException {
         output.write(data);
-        output.write(CRLF);
+        if (withCRLF) {
+            output.write(CRLF);
+        }
         output.flush();
     }
 
@@ -101,9 +109,9 @@ public class SimpleKestrelClient implements Closeable {
 
     public void set(String key, int expiration, String value) throws IOException {
         byte[] valueData = value.getBytes(CHARSET_UTF8);
-        String command = String.format("set %s 0 %d %d", key, expiration, valueData.length);
+        String command = commandFactory.setCommand(key, expiration, valueData);
         send(command);
-        send(valueData);
+        send(valueData, true);
 
         ResponseType responseType = recvResponseType();
         if (responseType != ResponseType.STORED) {
@@ -135,27 +143,27 @@ public class SimpleKestrelClient implements Closeable {
     }
 
     public String get(String key) throws IOException {
-        String command = String.format("get %s", key);
+        String command = commandFactory.getCommand(key);
         return rawGet(command);
     }
 
     public String get(String key, long timeout) throws IOException {
-        String command = String.format("get %s/t=%d", key, timeout);
+        String command = commandFactory.getCommand(key, timeout);
         return rawGet(command);
     }
 
     public String peek(String key) throws IOException {
-        String command = String.format("get %s/peek", key);
+        String command = commandFactory.peekCommand(key);
         return rawGet(command);
     }
 
     public String peek(String key, long timeout) throws IOException {
-        String command = String.format("get %s/peek/t=%d", key, timeout);
+        String command = commandFactory.peekCommand(key, timeout);
         return rawGet(command);
     }
 
     public void delete(String key) throws IOException {
-        String command = String.format("delete %s", key);
+        String command = commandFactory.deleteCommand(key);
         send(command);
         ResponseType deletedResponseType = recvResponseType();
         if (deletedResponseType != ResponseType.DELETED && deletedResponseType != ResponseType.END) {

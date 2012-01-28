@@ -78,4 +78,13 @@ public class SimpleKestrelClientTest {
         }
         client.delete("hoge");
     }
+
+    @Test
+    public void many_get() throws Exception {
+        client.set("hoge", "hogehoge");
+        for (int i = 0; i < 40000; ++i) {
+            client.peek("hoge");
+        }
+        client.delete("hoge");
+    }
 }
