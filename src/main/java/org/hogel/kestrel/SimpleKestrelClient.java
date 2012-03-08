@@ -12,6 +12,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+import org.apache.commons.codec.binary.Hex;
+
+import scala.actors.threadpool.Arrays;
+
 public class SimpleKestrelClient implements Closeable {
     private static final Charset CHARSET_UTF8 = Charset.forName("UTF-8");
 
@@ -92,15 +96,18 @@ public class SimpleKestrelClient implements Closeable {
     }
 
     private byte[] recvData(int length) throws IOException {
-        byte[] data = new byte[length];
-        for (int i = 0; i < length; ) {
-            byte[] recvData = recv();
-            int recvLength = recvData.length;
-            int copyLength = i + recvLength > length ? length - i : recvLength;
-            System.arraycopy(recvData, 0, data, i, copyLength);
-            i += recvData.length;
+        ByteArrayOutputStream data = new ByteArrayOutputStream(length);
+        int ch;
+        for (int i = 0; i < length && (ch = input.read()) != -1; ++i) {
+            data.write(ch);
         }
-        return data;
+        byte[] ends = new byte[2];
+        if (input.read(ends) != 2) {
+            throw new IllegalStateException("No terminate code");
+        } else if (!Arrays.equals(ends, CRLF)) {
+            throw new IllegalStateException("Invalid terminate code " + Hex.encodeHexString(ends));
+        }
+        return data.toByteArray();
     }
 
     public void set(String key, String value) throws IOException {

@@ -87,4 +87,16 @@ public class SimpleKestrelClientTest {
         }
         client.delete("hoge");
     }
+
+    @Test
+    public void ends_with_crlf() throws Exception {
+        client.set("hoge", "\r\n");
+
+        assertThat(client.peek("hoge"), is("\r\n"));
+        assertThat(client.get("hoge"), is("\r\n"));
+        assertThat(client.get("hoge"), is(nullValue()));
+
+        client.delete("hoge");
+        assertThat(client.get("hoge"), is(nullValue()));
+    }
 }
