@@ -99,4 +99,13 @@ public class SimpleKestrelClientTest {
         client.delete("hoge");
         assertThat(client.get("hoge"), is(nullValue()));
     }
+
+    @Test
+    public void ends_with_empty() throws Exception {
+        client.delete("hoge");
+        client.set("hoge", "");
+        assertThat(client.peek("hoge"), is(""));
+        assertThat(client.get("hoge"), is(""));
+        assertThat(client.get("hoge"), is(nullValue()));
+    }
 }

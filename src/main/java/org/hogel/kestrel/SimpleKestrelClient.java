@@ -33,6 +33,9 @@ public class SimpleKestrelClient implements Closeable {
         }
 
         public static ResponseType responseType(String code) {
+            if (code.length() < 2) {
+               throw new IllegalArgumentException("No response type code: " + code);
+            }
             String rawCode = code.substring(0, code.length() - 2);
             if (typesMap.containsKey(rawCode)) {
                 return typesMap.get(rawCode);
@@ -107,11 +110,11 @@ public class SimpleKestrelClient implements Closeable {
         return data;
     }
 
-    public void set(String key, String value) throws IOException {
+    public synchronized void set(String key, String value) throws IOException {
         set(key, 0, value);
     }
 
-    public void set(String key, int expiration, String value) throws IOException {
+    public synchronized void set(String key, int expiration, String value) throws IOException {
         byte[] valueData = value.getBytes(CHARSET_UTF8);
         String command = commandFactory.setCommand(key, expiration, valueData);
         send(command);
@@ -124,7 +127,7 @@ public class SimpleKestrelClient implements Closeable {
     }
 
     static final Pattern SPACE_PATTERN = Pattern.compile("\\s");
-    public String rawGet(String command) throws IOException {
+    public synchronized String rawGet(String command) throws IOException {
         send(command);
         String getResponseTypeCode = new String(recv(), CHARSET_UTF8);
         ResponseType getResponseType = ResponseType.responseType(getResponseTypeCode);
@@ -146,27 +149,27 @@ public class SimpleKestrelClient implements Closeable {
         return value;
     }
 
-    public String get(String key) throws IOException {
+    public synchronized String get(String key) throws IOException {
         String command = commandFactory.getCommand(key);
         return rawGet(command);
     }
 
-    public String get(String key, long timeout) throws IOException {
+    public synchronized String get(String key, long timeout) throws IOException {
         String command = commandFactory.getCommand(key, timeout);
         return rawGet(command);
     }
 
-    public String peek(String key) throws IOException {
+    public synchronized String peek(String key) throws IOException {
         String command = commandFactory.peekCommand(key);
         return rawGet(command);
     }
 
-    public String peek(String key, long timeout) throws IOException {
+    public synchronized String peek(String key, long timeout) throws IOException {
         String command = commandFactory.peekCommand(key, timeout);
         return rawGet(command);
     }
 
-    public void delete(String key) throws IOException {
+    public synchronized void delete(String key) throws IOException {
         String command = commandFactory.deleteCommand(key);
         send(command);
         ResponseType deletedResponseType = recvResponseType();
@@ -175,7 +178,8 @@ public class SimpleKestrelClient implements Closeable {
         }
     }
 
-    public void close() throws IOException {
+    @Override
+    public synchronized void close() throws IOException {
         socket.close();
     }
 }
