@@ -23,6 +23,7 @@ public class KestrelCommandFactoryTest {
     public void test_set() throws Exception {
         assertThat(factory.setCommand("hoge", "fuga".getBytes(CHARSET_UTF8)), is("set hoge 0 0 4\r\n"));
         assertThat(factory.setCommand("hoge", 1000, "fuga".getBytes(CHARSET_UTF8)), is("set hoge 0 1000 4\r\n"));
+        assertThat(factory.setCommand("hoge", "fuga".getBytes(CHARSET_UTF8)), is("set hoge 0 0 4\r\n"));
     }
 
     @Test
@@ -37,5 +38,4 @@ public class KestrelCommandFactoryTest {
     public void test_delete() throws Exception {
         assertThat(factory.deleteCommand("hoge"), is("delete hoge\r\n"));
     }
-
 }

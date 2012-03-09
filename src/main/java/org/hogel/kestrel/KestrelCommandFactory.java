@@ -1,71 +1,83 @@
 package org.hogel.kestrel;
 
+import java.util.TreeMap;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+
+
 
 
 public class KestrelCommandFactory {
-    private static final String CRLF = "\r\n";
+    static final Logger LOG = LoggerFactory.getLogger(KestrelCommandFactory.class);
+
+    public static class CommandCache extends TreeMap<Object, CommandCache> {
+        private static final long serialVersionUID = 1L;
+        final String command;
+        public CommandCache(String command) {
+            this.command = command;
+        }
+        public String getCommand() {
+            return command;
+        }
+        synchronized public String getCachedCommand(Object... values) {
+            CommandCache cache = this;
+            String command = cache.getCommand();
+            for (Object value : values) {
+                CommandCache next = cache.get(value);
+                if (next == null) {
+                    next = new CommandCache(command + value.toString());
+                    cache.put(value, next);
+                }
+                command = next.getCommand();
+                cache = next;
+            }
+            return cache.getCommand();
+        }
+    }
 
     public KestrelCommandFactory() {
     }
 
-    private String createCommand(String... values) {
-        int bufsize = 0;
-        for (String value : values) {
-            bufsize += value.length();
-        }
-        char[] cmdbuf = new char[bufsize];
-        int index = 0;
-        for (String value : values) {
-            index = copychars(cmdbuf, index, value);
-        }
-        return new String(cmdbuf);
+    private String createCommand(CommandCache commandCache, Object... values) {
+        return commandCache.getCachedCommand(values);
     }
 
-    private int copychars(char[] buf, int index, String append) {
-        int length = append.length();
-        append.getChars(0, length, buf, index);
-        return index + length;
-    }
+    private static final String CRLF = "\r\n";
 
-    private static final String SET_SP = "set ";
-    private static final String SP_ZERO_SP_ZERO_SP = " 0 0 ";
-
+    private final CommandCache setCommandCache = new CommandCache("set ");
     public String setCommand(String key, byte[] data) {
-        return createCommand(SET_SP, key, SP_ZERO_SP_ZERO_SP, Long.toString(data.length), CRLF);
+        return createCommand(setCommandCache, key, " 0 0 ", data.length, CRLF);
     }
 
-    private static final String SP_ZERO_SP = " 0 ";
-    private static final String SP = " ";
-
+    private final CommandCache setExpCommandCache = new CommandCache("set ");
     public String setCommand(String key, long expiration, byte[] data) {
-        return createCommand(SET_SP, key, SP_ZERO_SP, Long.toString(expiration), SP, Integer.toString(data.length), CRLF);
+        return createCommand(setExpCommandCache, key, " 0 ", expiration, " ", data.length, CRLF);
     }
 
-    private static final String GET_SP = "get ";
-
+    private final CommandCache getCommandCache = new CommandCache("get ");
     public String getCommand(String key) {
-        return createCommand(GET_SP, key, CRLF);
+        return createCommand(getCommandCache, key, CRLF);
     }
 
-    private static final String SLASH_T_EQ = "/t=";
-
+    private final CommandCache getTimeoutCommandCache = new CommandCache("get ");
     public String getCommand(String key, long timeout) {
-        return createCommand(GET_SP, key, SLASH_T_EQ, Long.toString(timeout), CRLF);
+        return createCommand(getTimeoutCommandCache, key, "/t=", timeout, CRLF);
     }
 
-    private static final String SLASH_PEEK = "/peek";
-
+    private final CommandCache peekCommandCache = new CommandCache("get ");
     public String peekCommand(String key) {
-        return createCommand(GET_SP, key, SLASH_PEEK, CRLF);
+        return createCommand(peekCommandCache, key, "/peek", CRLF);
     }
 
+    private final CommandCache peekTimeoutCommandCache = new CommandCache("get ");
     public String peekCommand(String key, long timeout) {
-        return createCommand(GET_SP, key, SLASH_PEEK, SLASH_T_EQ, Long.toString(timeout), CRLF);
+        return createCommand(peekTimeoutCommandCache, key, "/peek/t=", timeout, CRLF);
     }
 
-    private static final String DELETE_SP = "delete ";
-
+    private final CommandCache deleteCommandCache = new CommandCache("delete ");
     public String deleteCommand(String key) {
-        return createCommand(DELETE_SP, key, CRLF);
+        return createCommand(deleteCommandCache, key, CRLF);
     }
 }

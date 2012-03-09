@@ -12,10 +12,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-import org.apache.commons.codec.binary.Hex;
-
-import scala.actors.threadpool.Arrays;
-
 public class SimpleKestrelClient implements Closeable {
     private static final Charset CHARSET_UTF8 = Charset.forName("UTF-8");
 
@@ -96,18 +92,19 @@ public class SimpleKestrelClient implements Closeable {
     }
 
     private byte[] recvData(int length) throws IOException {
-        ByteArrayOutputStream data = new ByteArrayOutputStream(length);
-        int ch;
-        for (int i = 0; i < length && (ch = input.read()) != -1; ++i) {
-            data.write(ch);
+        byte[] data = new byte[length];
+        if (input.read(data) != length) {
+            throw new IllegalStateException("Recieve Data Terminated");
         }
-        byte[] ends = new byte[2];
-        if (input.read(ends) != 2) {
-            throw new IllegalStateException("No terminate code");
-        } else if (!Arrays.equals(ends, CRLF)) {
-            throw new IllegalStateException("Invalid terminate code " + Hex.encodeHexString(ends));
+        int cr = input.read(), lf = input.read();
+        if (cr != '\r' || lf != '\n') {
+            if (cr == -1 || lf == -1) {
+                throw new IllegalStateException("No terminate code");
+            } else {
+                throw new IllegalStateException(String.format("Invalid terminate code %02x%02x", cr, lf));
+            }
         }
-        return data.toByteArray();
+        return data;
     }
 
     public void set(String key, String value) throws IOException {
