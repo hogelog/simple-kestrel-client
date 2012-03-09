@@ -79,11 +79,11 @@ public class SimpleKestrelClient implements Closeable {
         while ((ch = input.read()) != -1) {
             dataBuffer.write(ch);
             if (ch == '\n' && prevch == '\r') {
-                break;
+                return dataBuffer.toByteArray();
             }
             prevch = ch;
         }
-        return dataBuffer.toByteArray();
+        throw new IOException("Cannot receive memcached line (terminated by CRLF)");
     }
 
     private ResponseType recvResponseType() throws IOException {
