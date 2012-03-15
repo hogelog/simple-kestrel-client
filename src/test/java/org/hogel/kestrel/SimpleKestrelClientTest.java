@@ -4,9 +4,6 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.nullValue;
 import static org.junit.Assert.assertThat;
 
-import java.io.IOException;
-import java.net.Socket;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -15,14 +12,18 @@ public class SimpleKestrelClientTest {
     private SimpleKestrelClient client;
 
     @Before
-    public void before() throws IOException {
-        Socket socket = new Socket("127.0.0.1", 22133);
-        client = new SimpleKestrelClient(socket);
-        client.delete("hoge");
+    public void before() throws Exception {
+        try {
+            client = new SimpleKestrelClient("127.0.0.1", 22133);
+            client.delete("hoge");
+        } catch (Exception e) {
+            System.err.println("Run kestrel server before test!");
+            throw e;
+        }
     }
 
     @After
-    public void after() throws IOException {
+    public void after() {
         client.delete("hoge");
         client.close();
     }
@@ -38,12 +39,12 @@ public class SimpleKestrelClientTest {
 
     @Test
     public void timeout_set_peek_get() throws Exception {
-        new Thread(){
+        new Thread() {
             @Override
             public void run() {
                 try {
-                    Socket socket = new Socket("127.0.0.1", 22133);
-                    SimpleKestrelClient client = new SimpleKestrelClient(socket);
+                    SimpleKestrelClient client = new SimpleKestrelClient(
+                            "127.0.0.1", 22133);
                     Thread.sleep(1000);
                     client.set("hoge", "hogefuga");
                     Thread.sleep(1000);

@@ -4,7 +4,7 @@
     <groupId>org.hogel</groupId>
     <artifactId>simple-kestrel-client</artifactId>
     <packaging>jar</packaging>
-    <version>0.0.1</version>
+    <version>0.1.0</version>
     <name>simple-kestrel-client</name>
     <url>https://github.com/hogelog/simple-kestrel-client</url>
 
@@ -45,18 +45,14 @@
         <dependency>
             <groupId>com.twitter</groupId>
             <artifactId>finagle-kestrel</artifactId>
-            <version>1.11.1</version>
-        </dependency>
-        <dependency>
-            <groupId>commons-codec</groupId>
-            <artifactId>commons-codec</artifactId>
-            <version>1.5</version>
+            <version>3.0.0</version>
         </dependency>
     </dependencies>
     <repositories>
         <repository>
-            <id>twittercom</id>
-            <name>twitter.com</name>
+            <id>twitter</id>
+            <name>Twitter Maven Repository</name>
+            <layout>default</layout>
             <url>http://maven.twttr.com/</url>
         </repository>
     </repositories>

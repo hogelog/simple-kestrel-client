@@ -1,185 +1,75 @@
 package org.hogel.kestrel;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
-import java.io.IOException;
-import java.net.Socket;
-import java.net.UnknownHostException;
-import java.nio.charset.Charset;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.regex.Pattern;
+import java.net.InetSocketAddress;
+import java.util.concurrent.TimeUnit;
+
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.util.CharsetUtil;
+
+import com.twitter.finagle.ServiceFactory;
+import com.twitter.finagle.builder.ClientBuilder;
+import com.twitter.finagle.builder.ClientConfig.Yes;
+import com.twitter.finagle.kestrel.java.Client;
+import com.twitter.finagle.kestrel.protocol.Command;
+import com.twitter.finagle.kestrel.protocol.Kestrel;
+import com.twitter.finagle.kestrel.protocol.Response;
+import com.twitter.util.Duration;
 
 public class SimpleKestrelClient implements Closeable {
-    private static final Charset CHARSET_UTF8 = Charset.forName("UTF-8");
 
-    public static enum ResponseType {
-        VALUE,
-        END,
-        STORED,
-        CLIENT_ERROR,
-        DELETED,
-        ;
+    private final Client client;
 
-        static final Map<String, ResponseType> typesMap;
-        static {
-            ResponseType[] values = values();
-            typesMap = new HashMap<String, ResponseType>(values.length);
-            for (ResponseType responseType : values) {
-                typesMap.put(responseType.name(), responseType);
-            }
-        }
-
-        public static ResponseType responseType(String code) {
-            if (code.length() < 2) {
-               throw new IllegalArgumentException("No response type code: " + code);
-            }
-            String rawCode = code.substring(0, code.length() - 2);
-            if (typesMap.containsKey(rawCode)) {
-                return typesMap.get(rawCode);
-            }
-            if (rawCode.startsWith("VALUE ")) {
-                return VALUE;
-            }
-            throw new IllegalArgumentException("unknown response type code: " + rawCode);
-        }
+    public SimpleKestrelClient(String host, int port) {
+        this(new InetSocketAddress(host, port));
     }
 
-    private final Socket socket;
-    private final BufferedInputStream input;
-    private final BufferedOutputStream output;
-    private final KestrelCommandFactory commandFactory;
-
-    public SimpleKestrelClient(Socket socket) throws UnknownHostException, IOException {
-        this.socket = socket;
-        input = new BufferedInputStream(socket.getInputStream());
-        output = new BufferedOutputStream(socket.getOutputStream());
-        commandFactory = new KestrelCommandFactory();
+    public SimpleKestrelClient(InetSocketAddress addr) {
+        ClientBuilder<Command, Response, Yes, Yes, Yes> builder = ClientBuilder.get()
+                    .codec(Kestrel.get())
+                    .hosts(addr)
+                    .hostConnectionLimit(1);
+        ServiceFactory<Command, Response> kestrelClientBuilder = ClientBuilder.safeBuildFactory(builder);
+        client = Client.newInstance(kestrelClientBuilder);
     }
 
-    static final byte[] CRLF = "\r\n".getBytes(CHARSET_UTF8);
-    private void send(String command) throws IOException {
-        send(command.getBytes(CHARSET_UTF8));
-    }
-
-    private void send(byte[] data) throws IOException {
-        send(data, false);
-    }
-
-    private void send(byte[] data, boolean withCRLF) throws IOException {
-        output.write(data);
-        if (withCRLF) {
-            output.write(CRLF);
-        }
-        output.flush();
-    }
-
-    private byte[] recv() throws IOException {
-        ByteArrayOutputStream dataBuffer = new ByteArrayOutputStream();
-        int prevch = -1, ch;
-        while ((ch = input.read()) != -1) {
-            dataBuffer.write(ch);
-            if (ch == '\n' && prevch == '\r') {
-                return dataBuffer.toByteArray();
-            }
-            prevch = ch;
-        }
-        throw new IOException("Cannot receive memcached line (terminated by CRLF)");
-    }
-
-    private ResponseType recvResponseType() throws IOException {
-        String response = new String(recv(), CHARSET_UTF8);
-        return ResponseType.responseType(response);
-    }
-
-    private byte[] recvData(int length) throws IOException {
-        byte[] data = new byte[length];
-        if (input.read(data) != length) {
-            throw new IllegalStateException("Recieve Data Terminated");
-        }
-        int cr = input.read(), lf = input.read();
-        if (cr != '\r' || lf != '\n') {
-            if (cr == -1 || lf == -1) {
-                throw new IllegalStateException("No terminate code");
-            } else {
-                throw new IllegalStateException(String.format("Invalid terminate code %02x%02x", cr, lf));
-            }
-        }
-        return data;
-    }
-
-    public synchronized void set(String key, String value) throws IOException {
-        set(key, 0, value);
-    }
-
-    public synchronized void set(String key, int expiration, String value) throws IOException {
-        byte[] valueData = value.getBytes(CHARSET_UTF8);
-        String command = commandFactory.setCommand(key, expiration, valueData);
-        send(command);
-        send(valueData, true);
-
-        ResponseType responseType = recvResponseType();
-        if (responseType != ResponseType.STORED) {
-            throw new IllegalArgumentException(responseType.name());
-        }
-    }
-
-    static final Pattern SPACE_PATTERN = Pattern.compile("\\s");
-    public synchronized String rawGet(String command) throws IOException {
-        send(command);
-        String getResponseTypeCode = new String(recv(), CHARSET_UTF8);
-        ResponseType getResponseType = ResponseType.responseType(getResponseTypeCode);
-        if (getResponseType == ResponseType.END) {
-            return null;
-        }
-        if (getResponseType != ResponseType.VALUE) {
-            throw new IllegalArgumentException(getResponseType.name());
-        }
-
-        int length = Integer.valueOf(SPACE_PATTERN.split(getResponseTypeCode)[3]);
-        byte[] valueData = recvData(length);
-        String value = new String(valueData, CHARSET_UTF8);
-
-        ResponseType endResponseType = recvResponseType();
-        if (endResponseType != ResponseType.END) {
-            throw new IllegalArgumentException(endResponseType.name());
-        }
-        return value;
-    }
-
-    public synchronized String get(String key) throws IOException {
-        String command = commandFactory.getCommand(key);
-        return rawGet(command);
-    }
-
-    public synchronized String get(String key, long timeout) throws IOException {
-        String command = commandFactory.getCommand(key, timeout);
-        return rawGet(command);
-    }
-
-    public synchronized String peek(String key) throws IOException {
-        String command = commandFactory.peekCommand(key);
-        return rawGet(command);
-    }
-
-    public synchronized String peek(String key, long timeout) throws IOException {
-        String command = commandFactory.peekCommand(key, timeout);
-        return rawGet(command);
-    }
-
-    public synchronized void delete(String key) throws IOException {
-        String command = commandFactory.deleteCommand(key);
-        send(command);
-        ResponseType deletedResponseType = recvResponseType();
-        if (deletedResponseType != ResponseType.DELETED && deletedResponseType != ResponseType.END) {
-            throw new IllegalArgumentException(deletedResponseType.name());
-        }
+    public Response delete(String queueName) {
+        return client.delete("hoge").apply();
     }
 
     @Override
-    public synchronized void close() throws IOException {
-        socket.close();
+    public void close() {
+        client.close();
+    }
+
+    public void set(String queueName, String value) {
+        client.set(queueName, value);
+    }
+
+    public String get(String queueName) {
+        return get(queueName, 0);
+    }
+
+    public String get(String queueName, int waitFor) {
+        Duration waitDuration = Duration.apply(waitFor, TimeUnit.MILLISECONDS);
+        return get(queueName, waitDuration);
+    }
+
+    public String get(String queueName, Duration waitDuration) {
+        ChannelBuffer value = client.get(queueName, waitDuration).apply();
+        return value == null ? null : value.toString(CharsetUtil.UTF_8);
+    }
+
+    public String peek(String queueName) {
+        return peek(queueName, 0);
+    }
+
+    public String peek(String queueName, int waitFor) {
+        Duration waitDuration = Duration.apply(waitFor, TimeUnit.MILLISECONDS);
+        return peek(queueName, waitDuration);
+    }
+
+    public String peek(String queueName, Duration waitDuration) {
+        return get(queueName + "/peek", waitDuration);
     }
 }
