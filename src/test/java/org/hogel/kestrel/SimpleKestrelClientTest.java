@@ -109,4 +109,13 @@ public class SimpleKestrelClientTest {
         assertThat(client.get("hoge"), is(""));
         assertThat(client.get("hoge"), is(nullValue()));
     }
+
+    @Test
+    public void test_delete() throws Exception {
+        client.delete("moge");
+        client.set("moge", "");
+        assertThat(client.peek("moge"), is(""));
+        client.delete("moge");
+        assertThat(client.peek("moge"), is(nullValue()));
+    }
 }

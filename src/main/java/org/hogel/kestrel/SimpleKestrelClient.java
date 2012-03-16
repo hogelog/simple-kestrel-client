@@ -36,7 +36,7 @@ public class SimpleKestrelClient implements Closeable {
     }
 
     public void delete(String queueName) {
-        client.delete("hoge").apply();
+        client.delete(queueName).apply();
     }
 
     @Override
