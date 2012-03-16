@@ -5,6 +5,7 @@ import java.net.InetSocketAddress;
 import java.util.concurrent.TimeUnit;
 
 import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.util.CharsetUtil;
 
 import com.twitter.finagle.ServiceFactory;
@@ -15,6 +16,7 @@ import com.twitter.finagle.kestrel.protocol.Command;
 import com.twitter.finagle.kestrel.protocol.Kestrel;
 import com.twitter.finagle.kestrel.protocol.Response;
 import com.twitter.util.Duration;
+import com.twitter.util.Time;
 
 public class SimpleKestrelClient implements Closeable {
 
@@ -33,8 +35,8 @@ public class SimpleKestrelClient implements Closeable {
         client = Client.newInstance(kestrelClientBuilder);
     }
 
-    public Response delete(String queueName) {
-        return client.delete("hoge").apply();
+    public void delete(String queueName) {
+        client.delete("hoge").apply();
     }
 
     @Override
@@ -43,7 +45,13 @@ public class SimpleKestrelClient implements Closeable {
     }
 
     public void set(String queueName, String value) {
-        client.set(queueName, value);
+        set(queueName, 0, value);
+    }
+
+    public void set(String queueName, int exp, String value) {
+        Time expTime = Time.fromMilliseconds(exp);
+        ChannelBuffer buffer = ChannelBuffers.wrappedBuffer(value.getBytes(CharsetUtil.UTF_8));
+        client.set(queueName, buffer, expTime);
     }
 
     public String get(String queueName) {
