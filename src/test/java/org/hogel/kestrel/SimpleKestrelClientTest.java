@@ -118,4 +118,12 @@ public class SimpleKestrelClientTest {
         client.delete("moge");
         assertThat(client.peek("moge"), is(nullValue()));
     }
+
+    @Test
+    public void test_timeout() throws Exception {
+        client.delete("moge");
+        assertThat(client.peek("moge", 35000), is(nullValue()));
+        Thread.sleep(35000);
+        assertThat(client.peek("moge"), is(nullValue()));
+    }
 }
